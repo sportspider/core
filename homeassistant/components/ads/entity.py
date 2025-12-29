@@ -27,6 +27,7 @@ class AdsEntity(Entity):
         self._event: asyncio.Event | None = None
         self._attr_unique_id = ads_var
         self._attr_name = name
+        self._connection_callback = None
 
     async def async_added_to_hass(self) -> None:
         """Register connection state callback."""
@@ -42,13 +43,14 @@ class AdsEntity(Entity):
             )
             self.async_schedule_update_ha_state()
         
-        self._ads_hub.add_connection_callback(connection_callback)
+        self._connection_callback = connection_callback
+        self._ads_hub.add_connection_callback(self._connection_callback)
 
     async def async_will_remove_from_hass(self) -> None:
         """Unsubscribe from connection state changes."""
         await super().async_will_remove_from_hass()
-        # Note: We don't remove the callback here because we don't have a reference to it
-        # This is acceptable as the hub will be shut down when the integration is unloaded
+        if self._connection_callback:
+            self._ads_hub.remove_connection_callback(self._connection_callback)
 
     async def async_initialize_device(
         self,

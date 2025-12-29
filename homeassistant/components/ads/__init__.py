@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 import pyads
 import voluptuous as vol
@@ -22,9 +21,6 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import CONF_ADS_VAR, DATA_ADS, DOMAIN, AdsType
 from .hub import AdsHub
-
-if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
