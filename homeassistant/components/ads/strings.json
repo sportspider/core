@@ -1,4 +1,43 @@
 {
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up ADS connection",
+        "description": "Configure the connection to your ADS device",
+        "data": {
+          "device": "Device/Net ID (e.g., 1.2.3.4.5.6)",
+          "port": "Port",
+          "ip_address": "IP address (optional)"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure ADS connection",
+        "description": "Update the connection settings for your ADS device",
+        "data": {
+          "device": "Device/Net ID (e.g., 1.2.3.4.5.6)",
+          "port": "Port",
+          "ip_address": "IP address (optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to ADS device. Please check the device/net ID, port, and IP address.",
+      "invalid_net_id": "Invalid Net ID format. Net ID must be in format x.x.x.x.x.x (e.g., 1.2.3.4.5.6).",
+      "unknown": "Unexpected error occurred. Please check the logs for more details."
+    },
+    "abort": {
+      "already_configured": "This ADS device is already configured.",
+      "cannot_connect": "Failed to connect to ADS device during import."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "ADS options",
+        "description": "Configure options for the ADS integration"
+      }
+    }
+  },
   "services": {
     "write_data_by_name": {
       "description": "Write a value to the connected ADS device.",
