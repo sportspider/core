@@ -32,7 +32,7 @@ class AdsEntity(Entity):
     async def async_added_to_hass(self) -> None:
         """Register connection state callback."""
         await super().async_added_to_hass()
-        
+
         # Subscribe to hub connection state changes
         def connection_callback(connected: bool) -> None:
             """Handle connection state changes."""
@@ -42,7 +42,7 @@ class AdsEntity(Entity):
                 "connected" if connected else "disconnected",
             )
             self.async_schedule_update_ha_state()
-        
+
         self._connection_callback = connection_callback
         self._ads_hub.add_connection_callback(self._connection_callback)
 
