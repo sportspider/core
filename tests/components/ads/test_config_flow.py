@@ -187,3 +187,313 @@ async def test_reconfigure_flow(hass: HomeAssistant) -> None:
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "reconfigure_successful"
         assert entry.data == new_data
+
+
+async def test_options_flow_add_switch(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test adding a switch through options flow."""
+    mock_config_entry.add_to_hass(hass)
+    
+    # Start options flow
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+    
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "init"
+    
+    # Select add_entity
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"next_step_id": "add_entity"},
+    )
+    
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "add_entity"
+    
+    # Select switch type
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"type": "switch"},
+    )
+    
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "configure_switch"
+    
+    # Configure switch
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"name": "Test Switch", "adsvar": "GVL.bSwitch1"},
+    )
+    
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "init"
+    
+    # Finish configuration
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"next_step_id": "finish"},
+    )
+    
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert "entities" in result["data"]
+    assert len(result["data"]["entities"]) == 1
+    assert result["data"]["entities"][0]["type"] == "switch"
+    assert result["data"]["entities"][0]["name"] == "Test Switch"
+    assert result["data"]["entities"][0]["adsvar"] == "GVL.bSwitch1"
+
+
+async def test_options_flow_add_light(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test adding a light through options flow."""
+    mock_config_entry.add_to_hass(hass)
+    
+    # Start options flow
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+    
+    # Select add_entity
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"next_step_id": "add_entity"},
+    )
+    
+    # Select light type
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"type": "light"},
+    )
+    
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "configure_light"
+    
+    # Configure light with brightness
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "name": "Test Light",
+            "adsvar": "GVL.bLight1",
+            "adsvar_brightness": "GVL.nBrightness1",
+        },
+    )
+    
+    assert result["type"] is FlowResultType.MENU
+    
+    # Finish
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"next_step_id": "finish"},
+    )
+    
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert len(result["data"]["entities"]) == 1
+    assert result["data"]["entities"][0]["type"] == "light"
+    assert result["data"]["entities"][0]["adsvar_brightness"] == "GVL.nBrightness1"
+
+
+async def test_options_flow_add_sensor(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test adding a sensor through options flow."""
+    mock_config_entry.add_to_hass(hass)
+    
+    # Start options flow
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+    
+    # Navigate to add sensor
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"next_step_id": "add_entity"},
+    )
+    
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"type": "sensor"},
+    )
+    
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "configure_sensor"
+    
+    # Configure sensor
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "name": "Temperature",
+            "adsvar": "GVL.fTemp1",
+            "adstype": "real",
+            "unit_of_measurement": "°C",
+            "device_class": "temperature",
+        },
+    )
+    
+    # Finish
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"next_step_id": "finish"},
+    )
+    
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert len(result["data"]["entities"]) == 1
+    entity = result["data"]["entities"][0]
+    assert entity["type"] == "sensor"
+    assert entity["adstype"] == "real"
+    assert entity["unit_of_measurement"] == "°C"
+
+
+async def test_options_flow_edit_entity(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test editing an entity through options flow."""
+    # Add entity to options
+    mock_config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        options={
+            "entities": [
+                {
+                    "type": "switch",
+                    "entity_id": "test_switch",
+                    "name": "Test Switch",
+                    "adsvar": "GVL.bSwitch1",
+                }
+            ]
+        },
+    )
+    
+    # Start options flow
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+    
+    # Select edit_entity
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"next_step_id": "edit_entity"},
+    )
+    
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "edit_entity"
+    
+    # Select entity to edit
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"entity_to_edit": "test_switch"},
+    )
+    
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "configure_switch"
+    
+    # Update entity
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"name": "Updated Switch", "adsvar": "GVL.bSwitch2"},
+    )
+    
+    # Finish
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"next_step_id": "finish"},
+    )
+    
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert len(result["data"]["entities"]) == 1
+    assert result["data"]["entities"][0]["name"] == "Updated Switch"
+    assert result["data"]["entities"][0]["adsvar"] == "GVL.bSwitch2"
+
+
+async def test_options_flow_remove_entity(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test removing an entity through options flow."""
+    # Add entities to options
+    mock_config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        options={
+            "entities": [
+                {
+                    "type": "switch",
+                    "entity_id": "switch1",
+                    "name": "Switch 1",
+                    "adsvar": "GVL.bSwitch1",
+                },
+                {
+                    "type": "switch",
+                    "entity_id": "switch2",
+                    "name": "Switch 2",
+                    "adsvar": "GVL.bSwitch2",
+                },
+            ]
+        },
+    )
+    
+    # Start options flow
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+    
+    # Select remove_entity
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"next_step_id": "remove_entity"},
+    )
+    
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "remove_entity"
+    
+    # Select entity to remove
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"entity_to_remove": "switch1"},
+    )
+    
+    assert result["type"] is FlowResultType.MENU
+    
+    # Finish
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"next_step_id": "finish"},
+    )
+    
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert len(result["data"]["entities"]) == 1
+    assert result["data"]["entities"][0]["entity_id"] == "switch2"
+
+
+async def test_options_flow_duplicate_entity_name(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test that duplicate entity names are rejected."""
+    # Add entity to options
+    mock_config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        options={
+            "entities": [
+                {
+                    "type": "switch",
+                    "entity_id": "test_switch",
+                    "name": "Test Switch",
+                    "adsvar": "GVL.bSwitch1",
+                }
+            ]
+        },
+    )
+    
+    # Start options flow and try to add duplicate
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+    
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"next_step_id": "add_entity"},
+    )
+    
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"type": "switch"},
+    )
+    
+    # Try to add entity with same name
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"name": "Test Switch", "adsvar": "GVL.bSwitch2"},
+    )
+    
+    # Should show error
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"name": "entity_exists"}
