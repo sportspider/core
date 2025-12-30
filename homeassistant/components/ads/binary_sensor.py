@@ -11,6 +11,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_DEVICE_CLASS, CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
@@ -37,7 +38,7 @@ def setup_platform(
     add_entities: AddEntitiesCallback,
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
-    """Set up the Binary Sensor platform for ADS."""
+    """Set up the Binary Sensor platform for ADS (legacy YAML config)."""
     ads_hub = hass.data[DATA_ADS]
 
     ads_var: str = config[CONF_ADS_VAR]
@@ -46,6 +47,34 @@ def setup_platform(
 
     ads_sensor = AdsBinarySensor(ads_hub, name, ads_var, device_class)
     add_entities([ads_sensor])
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up ADS binary sensor entities from config entry."""
+    ads_hub = hass.data[DATA_ADS]
+    
+    # Get configured entities from options
+    entities = entry.options.get("entities", [])
+    
+    # Filter for binary sensor entities
+    binary_sensor_configs = [e for e in entities if e.get("type") == "binary_sensor"]
+    
+    # Create binary sensor entities
+    binary_sensors = []
+    for config in binary_sensor_configs:
+        name = config.get(CONF_NAME)
+        ads_var = config.get(CONF_ADS_VAR)
+        device_class = config.get(CONF_DEVICE_CLASS) or None
+        
+        if name and ads_var:
+            binary_sensors.append(AdsBinarySensor(ads_hub, name, ads_var, device_class))
+    
+    if binary_sensors:
+        async_add_entities(binary_sensors)
 
 
 class AdsBinarySensor(AdsEntity, BinarySensorEntity):

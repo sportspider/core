@@ -13,6 +13,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_DEVICE_CLASS, CONF_NAME, CONF_UNIT_OF_MEASUREMENT
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
@@ -63,7 +64,7 @@ def setup_platform(
     add_entities: AddEntitiesCallback,
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
-    """Set up an ADS sensor device."""
+    """Set up an ADS sensor device (legacy YAML config)."""
     ads_hub = hass.data[DATA_ADS]
 
     ads_var: str = config[CONF_ADS_VAR]
@@ -86,6 +87,50 @@ def setup_platform(
     )
 
     add_entities([entity])
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up ADS sensor entities from config entry."""
+    ads_hub = hass.data[DATA_ADS]
+    
+    # Get configured entities from options
+    entities = entry.options.get("entities", [])
+    
+    # Filter for sensor entities
+    sensor_configs = [e for e in entities if e.get("type") == "sensor"]
+    
+    # Create sensor entities
+    sensors = []
+    for config in sensor_configs:
+        name = config.get(CONF_NAME)
+        ads_var = config.get(CONF_ADS_VAR)
+        ads_type = config.get(CONF_ADS_TYPE, AdsType.INT)
+        factor_str = config.get(CONF_ADS_FACTOR)
+        factor = int(factor_str) if factor_str else None
+        device_class = config.get(CONF_DEVICE_CLASS) or None
+        state_class = config.get(CONF_STATE_CLASS) or None
+        unit = config.get(CONF_UNIT_OF_MEASUREMENT) or None
+        
+        if name and ads_var:
+            sensors.append(
+                AdsSensor(
+                    ads_hub,
+                    ads_var,
+                    ads_type,
+                    name,
+                    factor,
+                    device_class,
+                    state_class,
+                    unit,
+                )
+            )
+    
+    if sensors:
+        async_add_entities(sensors)
 
 
 class AdsSensor(AdsEntity, SensorEntity):

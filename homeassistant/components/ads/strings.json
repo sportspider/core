@@ -33,9 +33,92 @@
   "options": {
     "step": {
       "init": {
-        "title": "ADS options",
-        "description": "Configure options for the ADS integration"
+        "title": "Manage ADS entities",
+        "description": "Add, edit, or remove ADS entities",
+        "menu_options": {
+          "add_entity": "Add entity",
+          "edit_entity": "Edit entity",
+          "remove_entity": "Remove entity",
+          "finish": "Finish"
+        }
+      },
+      "add_entity": {
+        "title": "Select entity type",
+        "description": "Choose the type of entity to add",
+        "data": {
+          "type": "Entity type"
+        }
+      },
+      "configure_switch": {
+        "title": "Configure switch",
+        "description": "Configure the switch entity",
+        "data": {
+          "name": "Name",
+          "adsvar": "ADS variable name"
+        }
+      },
+      "configure_light": {
+        "title": "Configure light",
+        "description": "Configure the light entity",
+        "data": {
+          "name": "Name",
+          "adsvar": "ADS variable name (on/off)",
+          "adsvar_brightness": "ADS variable name for brightness (optional)"
+        }
+      },
+      "configure_sensor": {
+        "title": "Configure sensor",
+        "description": "Configure the sensor entity",
+        "data": {
+          "name": "Name",
+          "adsvar": "ADS variable name",
+          "adstype": "ADS data type",
+          "unit_of_measurement": "Unit of measurement (optional)",
+          "device_class": "Device class (optional)",
+          "state_class": "State class (optional)",
+          "factor": "Factor (optional)"
+        }
+      },
+      "configure_binary_sensor": {
+        "title": "Configure binary sensor",
+        "description": "Configure the binary sensor entity",
+        "data": {
+          "name": "Name",
+          "adsvar": "ADS variable name",
+          "device_class": "Device class (optional)"
+        }
+      },
+      "configure_cover": {
+        "title": "Configure cover",
+        "description": "Configure the cover entity",
+        "data": {
+          "name": "Name",
+          "adsvar": "ADS variable name (closed state)",
+          "adsvar_position": "ADS variable for position (optional)",
+          "adsvar_set_position": "ADS variable to set position (optional)",
+          "adsvar_open": "ADS variable to open (optional)",
+          "adsvar_close": "ADS variable to close (optional)",
+          "adsvar_stop": "ADS variable to stop (optional)",
+          "device_class": "Device class (optional)"
+        }
+      },
+      "edit_entity": {
+        "title": "Select entity to edit",
+        "description": "Choose an entity to edit",
+        "data": {
+          "entity_to_edit": "Entity"
+        }
+      },
+      "remove_entity": {
+        "title": "Select entity to remove",
+        "description": "Choose an entity to remove",
+        "data": {
+          "entity_to_remove": "Entity"
+        }
       }
+    },
+    "error": {
+      "entity_exists": "An entity with this name already exists."
     }
   },
   "services": {
