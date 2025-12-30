@@ -27,6 +27,30 @@ class AdsEntity(Entity):
         self._event: asyncio.Event | None = None
         self._attr_unique_id = ads_var
         self._attr_name = name
+        self._connection_callback = None
+
+    async def async_added_to_hass(self) -> None:
+        """Register connection state callback."""
+        await super().async_added_to_hass()
+
+        # Subscribe to hub connection state changes
+        def connection_callback(connected: bool) -> None:
+            """Handle connection state changes."""
+            _LOGGER.debug(
+                "Entity %s connection state changed to %s",
+                self.entity_id,
+                "connected" if connected else "disconnected",
+            )
+            self.async_schedule_update_ha_state()
+
+        self._connection_callback = connection_callback
+        self._ads_hub.add_connection_callback(self._connection_callback)
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Unsubscribe from connection state changes."""
+        await super().async_will_remove_from_hass()
+        if self._connection_callback:
+            self._ads_hub.remove_connection_callback(self._connection_callback)
 
     async def async_initialize_device(
         self,
@@ -66,5 +90,8 @@ class AdsEntity(Entity):
 
     @property
     def available(self) -> bool:
-        """Return False if state has not been updated yet."""
-        return self._state_dict[STATE_KEY_STATE] is not None
+        """Return False if state has not been updated yet or connection is lost."""
+        return (
+            self._state_dict[STATE_KEY_STATE] is not None
+            and self._ads_hub.connected
+        )

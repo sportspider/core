@@ -18,6 +18,11 @@ CONF_ADS_VAR = "adsvar"
 
 STATE_KEY_STATE = "state"
 
+# Connection monitoring constants
+CONF_ADS_VAR_MONITORED = "ads_var_monitored"
+DEFAULT_PORT = 48898
+CONNECTION_RETRY_INTERVAL = [1, 2, 4, 8, 16, 32, 60]  # Exponential backoff in seconds
+
 
 class AdsType(StrEnum):
     """Supported Types."""

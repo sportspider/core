@@ -1,10 +1,13 @@
 """Support for Automation Device Specification (ADS)."""
 
+from __future__ import annotations
+
 import logging
 
 import pyads
 import voluptuous as vol
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_DEVICE,
     CONF_IP_ADDRESS,
@@ -12,6 +15,7 @@ from homeassistant.const import (
     EVENT_HOMEASSISTANT_STOP,
 )
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
@@ -70,8 +74,35 @@ SCHEMA_SERVICE_WRITE_DATA_BY_NAME = vol.Schema(
 )
 
 
-def setup(hass: HomeAssistant, config: ConfigType) -> bool:
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the ADS component."""
+    # Check if YAML configuration exists
+    if DOMAIN not in config:
+        return True
+
+    conf = config[DOMAIN]
+
+    # Import YAML config to config entry
+    hass.async_create_task(
+        hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": "import"},
+            data={
+                CONF_DEVICE: conf[CONF_DEVICE],
+                CONF_PORT: conf[CONF_PORT],
+                CONF_IP_ADDRESS: conf.get(CONF_IP_ADDRESS),
+            },
+        )
+    )
+
+    return True
+
+
+def setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the ADS component (legacy sync setup for YAML-only configs)."""
+    # Only used for legacy setups - new setups should use async_setup
+    if DOMAIN not in config:
+        return True
 
     conf = config[DOMAIN]
 
@@ -82,7 +113,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
     client = pyads.Connection(net_id, port, ip_address)
 
     try:
-        ads = AdsHub(client)
+        ads = AdsHub(client, hass)
     except pyads.ADSError:
         _LOGGER.error(
             "Could not connect to ADS host (netid=%s, ip=%s, port=%s)",
@@ -112,5 +143,67 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
         handle_write_data_by_name,
         schema=SCHEMA_SERVICE_WRITE_DATA_BY_NAME,
     )
+
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up ADS from a config entry."""
+    net_id = entry.data[CONF_DEVICE]
+    port = entry.data[CONF_PORT]
+    ip_address = entry.data.get(CONF_IP_ADDRESS)
+
+    client = pyads.Connection(net_id, port, ip_address)
+
+    # Initialize hub with connection monitoring
+    ads_hub = AdsHub(client, hass)
+
+    # Check if connected
+    if not ads_hub.connected:
+        # Try to connect one more time before giving up
+        connected = await hass.async_add_executor_job(ads_hub.check_connection)
+        if not connected:
+            raise ConfigEntryNotReady(f"Could not connect to ADS device {net_id}")
+
+    # Store hub in hass data
+    hass.data[DATA_ADS] = ads_hub
+
+    # Register shutdown handler
+    entry.async_on_unload(
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, ads_hub.shutdown)
+    )
+
+    # Register service
+    def handle_write_data_by_name(call: ServiceCall) -> None:
+        """Write a value to the connected ADS device."""
+        ads_var: str = call.data[CONF_ADS_VAR]
+        ads_type: AdsType = call.data[CONF_ADS_TYPE]
+        value: int = call.data[CONF_ADS_VALUE]
+
+        result = ads_hub.write_by_name(ads_var, value, ADS_TYPEMAP[ads_type])
+        if result is None:
+            _LOGGER.error("Failed to write to ADS variable %s", ads_var)
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_WRITE_DATA_BY_NAME,
+        handle_write_data_by_name,
+        schema=SCHEMA_SERVICE_WRITE_DATA_BY_NAME,
+    )
+
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload an ADS config entry."""
+    ads_hub: AdsHub = hass.data.get(DATA_ADS)
+
+    if ads_hub:
+        await hass.async_add_executor_job(ads_hub.shutdown)
+        hass.data.pop(DATA_ADS, None)
+
+    # Remove service if this is the last entry
+    if not hass.config_entries.async_loaded_entries(DOMAIN):
+        hass.services.async_remove(DOMAIN, SERVICE_WRITE_DATA_BY_NAME)
 
     return True
