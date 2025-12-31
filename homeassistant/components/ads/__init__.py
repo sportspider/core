@@ -98,55 +98,6 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
-def setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the ADS component (legacy sync setup for YAML-only configs)."""
-    # Only used for legacy setups - new setups should use async_setup
-    if DOMAIN not in config:
-        return True
-
-    conf = config[DOMAIN]
-
-    net_id = conf[CONF_DEVICE]
-    ip_address = conf.get(CONF_IP_ADDRESS)
-    port = conf[CONF_PORT]
-
-    client = pyads.Connection(net_id, port, ip_address)
-
-    try:
-        ads = AdsHub(client, hass)
-    except pyads.ADSError:
-        _LOGGER.error(
-            "Could not connect to ADS host (netid=%s, ip=%s, port=%s)",
-            net_id,
-            ip_address,
-            port,
-        )
-        return False
-
-    hass.data[DATA_ADS] = ads
-    hass.bus.listen(EVENT_HOMEASSISTANT_STOP, ads.shutdown)
-
-    def handle_write_data_by_name(call: ServiceCall) -> None:
-        """Write a value to the connected ADS device."""
-        ads_var: str = call.data[CONF_ADS_VAR]
-        ads_type: AdsType = call.data[CONF_ADS_TYPE]
-        value: int = call.data[CONF_ADS_VALUE]
-
-        try:
-            ads.write_by_name(ads_var, value, ADS_TYPEMAP[ads_type])
-        except pyads.ADSError as err:
-            _LOGGER.error(err)
-
-    hass.services.register(
-        DOMAIN,
-        SERVICE_WRITE_DATA_BY_NAME,
-        handle_write_data_by_name,
-        schema=SCHEMA_SERVICE_WRITE_DATA_BY_NAME,
-    )
-
-    return True
-
-
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up ADS from a config entry."""
     net_id = entry.data[CONF_DEVICE]
@@ -194,16 +145,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Forward setup to platforms based on configured entities
     entities = entry.options.get("entities", [])
     platforms_to_load = set()
-    
+
     for entity_config in entities:
         entity_type = entity_config.get("type")
         if entity_type:
             platforms_to_load.add(entity_type)
-    
+
     # Always load platforms even if no entities configured yet (for future additions)
     # This allows the platforms to set up async_setup_entry which can be called later
     all_platforms = ["switch", "light", "sensor", "binary_sensor", "cover"]
-    
+
     await hass.config_entries.async_forward_entry_setups(entry, all_platforms)
 
     # Register update listener to handle options changes
@@ -222,7 +173,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Unload all platforms
     all_platforms = ["switch", "light", "sensor", "binary_sensor", "cover"]
     unload_ok = await hass.config_entries.async_unload_platforms(entry, all_platforms)
-    
+
     if unload_ok:
         ads_hub: AdsHub = hass.data.get(DATA_ADS)
 
