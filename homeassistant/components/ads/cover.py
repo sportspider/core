@@ -15,6 +15,7 @@ from homeassistant.components.cover import (
     CoverEntity,
     CoverEntityFeature,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_DEVICE_CLASS, CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
@@ -55,7 +56,7 @@ def setup_platform(
     add_entities: AddEntitiesCallback,
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
-    """Set up the cover platform for ADS."""
+    """Set up the cover platform for ADS (legacy YAML config)."""
     ads_hub = hass.data[DATA_ADS]
 
     ads_var_is_closed: str = config[CONF_ADS_VAR]
@@ -82,6 +83,51 @@ def setup_platform(
             )
         ]
     )
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up ADS cover entities from config entry."""
+    ads_hub = hass.data[DATA_ADS]
+    
+    # Get configured entities from options
+    entities = entry.options.get("entities", [])
+    
+    # Filter for cover entities
+    cover_configs = [e for e in entities if e.get("type") == "cover"]
+    
+    # Create cover entities
+    covers = []
+    for config in cover_configs:
+        name = config.get(CONF_NAME)
+        ads_var = config.get(CONF_ADS_VAR)
+        ads_var_position = config.get(CONF_ADS_VAR_POSITION)
+        ads_var_set_position = config.get(CONF_ADS_VAR_SET_POS)
+        ads_var_open = config.get(CONF_ADS_VAR_OPEN)
+        ads_var_close = config.get(CONF_ADS_VAR_CLOSE)
+        ads_var_stop = config.get(CONF_ADS_VAR_STOP)
+        device_class = config.get(CONF_DEVICE_CLASS) or None
+        
+        if name and ads_var:
+            covers.append(
+                AdsCover(
+                    ads_hub,
+                    ads_var,
+                    ads_var_position,
+                    ads_var_set_position,
+                    ads_var_open,
+                    ads_var_close,
+                    ads_var_stop,
+                    name,
+                    device_class,
+                )
+            )
+    
+    if covers:
+        async_add_entities(covers)
 
 
 class AdsCover(AdsEntity, CoverEntity):

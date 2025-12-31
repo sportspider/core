@@ -191,19 +191,47 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         schema=SCHEMA_SERVICE_WRITE_DATA_BY_NAME,
     )
 
+    # Forward setup to platforms based on configured entities
+    entities = entry.options.get("entities", [])
+    platforms_to_load = set()
+    
+    for entity_config in entities:
+        entity_type = entity_config.get("type")
+        if entity_type:
+            platforms_to_load.add(entity_type)
+    
+    # Always load platforms even if no entities configured yet (for future additions)
+    # This allows the platforms to set up async_setup_entry which can be called later
+    all_platforms = ["switch", "light", "sensor", "binary_sensor", "cover"]
+    
+    await hass.config_entries.async_forward_entry_setups(entry, all_platforms)
+
+    # Register update listener to handle options changes
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+
     return True
+
+
+async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload config entry when options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload an ADS config entry."""
-    ads_hub: AdsHub = hass.data.get(DATA_ADS)
+    # Unload all platforms
+    all_platforms = ["switch", "light", "sensor", "binary_sensor", "cover"]
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, all_platforms)
+    
+    if unload_ok:
+        ads_hub: AdsHub = hass.data.get(DATA_ADS)
 
-    if ads_hub:
-        await hass.async_add_executor_job(ads_hub.shutdown)
-        hass.data.pop(DATA_ADS, None)
+        if ads_hub:
+            await hass.async_add_executor_job(ads_hub.shutdown)
+            hass.data.pop(DATA_ADS, None)
 
-    # Remove service if this is the last entry
-    if not hass.config_entries.async_loaded_entries(DOMAIN):
-        hass.services.async_remove(DOMAIN, SERVICE_WRITE_DATA_BY_NAME)
+        # Remove service if this is the last entry
+        if not hass.config_entries.async_loaded_entries(DOMAIN):
+            hass.services.async_remove(DOMAIN, SERVICE_WRITE_DATA_BY_NAME)
 
-    return True
+    return unload_ok

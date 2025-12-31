@@ -13,6 +13,7 @@ from homeassistant.components.light import (
     ColorMode,
     LightEntity,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
@@ -42,7 +43,7 @@ def setup_platform(
     add_entities: AddEntitiesCallback,
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
-    """Set up the light platform for ADS."""
+    """Set up the light platform for ADS (legacy YAML config)."""
     ads_hub = hass.data[DATA_ADS]
 
     ads_var_enable: str = config[CONF_ADS_VAR]
@@ -50,6 +51,33 @@ def setup_platform(
     name: str = config[CONF_NAME]
 
     add_entities([AdsLight(ads_hub, ads_var_enable, ads_var_brightness, name)])
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up ADS light entities from config entry."""
+    ads_hub = hass.data[DATA_ADS]
+    
+    # Get configured entities from options
+    entities = entry.options.get("entities", [])
+    
+    # Filter for light entities
+    light_configs = [e for e in entities if e.get("type") == "light"]
+    
+    # Create light entities
+    lights = []
+    for config in light_configs:
+        name = config.get(CONF_NAME)
+        ads_var = config.get(CONF_ADS_VAR)
+        ads_var_brightness = config.get(CONF_ADS_VAR_BRIGHTNESS)
+        if name and ads_var:
+            lights.append(AdsLight(ads_hub, ads_var, ads_var_brightness, name))
+    
+    if lights:
+        async_add_entities(lights)
 
 
 class AdsLight(AdsEntity, LightEntity):
